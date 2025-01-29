@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sentiment Analysis AI</title>
+    
+    <!-- Modern UI Libraries -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- Custom JS -->
+    <script src="./static/mywebscript.js" defer></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f6f8fd 0%, #f1f4f9 100%);
+            min-height: 100vh;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+        }
+
+        .textarea-container {
+            position: relative;
+        }
+
+        #textToAnalyze {
+            transition: all 0.3s ease;
+            resize: none;
+            border: 2px solid #e2e8f0;
+        }
+
+        #textToAnalyze:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .char-count {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 0.8rem;
+            color: #6b7280;
+        }
+
+        .analyze-btn {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .analyze-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+        }
+
+        .analyze-btn:active {
+            transform: translateY(0);
+        }
+
+        .analyze-btn.loading {
+            animation: pulse 1.5s ease-in-out infinite;
+            background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+            pointer-events: none;
+        }
+
+        .analyze-btn.loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 200%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.2),
+                transparent
+            );
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .result-container {
+            transition: all 0.3s ease;
+        }
+
+        .loading {
+            display: none;
+        }
+
+        .loading.active {
+            display: inline-block;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-0">
+    <div class="container max-w-2xl mx-auto my-8">
+        <div class="glass-card rounded-2xl p-6 md:p-8 animate__animated animate__fadeIn">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">Sentiment Analysis AI</h1>
+                <p class="text-gray-600">Powered by BERT Neural Network</p>
+            </div>
+
+            <div class="mb-6">
+                <label for="textToAnalyze" class="block text-sm font-medium text-gray-700 mb-2">
+                    Enter your text for analysis
+                </label>
+                <div class="textarea-container">
+                    <textarea 
+                        class="w-full rounded-lg p-4 focus:outline-none"
+                        id="textToAnalyze"
+                        rows="4"
+                        placeholder="Type or paste your text here..."
+                        maxlength="500"
+                    ></textarea>
+                    <span class="char-count">0/500</span>
+                </div>
+            </div>
+
+            <button 
+                onclick="RunSentimentAnalysis()"
+                class="analyze-btn w-full py-3 px-4 rounded-lg text-white font-semibold flex items-center justify-center gap-2"
+            >
+                <span class="loading">
+                    <i class="fas fa-circle-notch fa-spin"></i>
+                </span>
+                <span class="btn-text">Analyze Sentiment</span>
+            </button>
+
+            <div class="mt-8">
+                <h4 class="text-lg font-semibold text-gray-800 mb-3">Analysis Result</h4>
+                <div id="system_response" class="p-4 bg-gray-50 rounded-lg min-h-[100px] result-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Character counter
+        const textarea = document.getElementById('textToAnalyze');
+        const charCount = document.querySelector('.char-count');
+
+        textarea.addEventListener('input', function() {
+            const remaining = this.value.length;
+            charCount.textContent = `${remaining}/500`;
+        });
+
+        // Enhance the existing RunSentimentAnalysis function
+        const originalRunSentimentAnalysis = window.RunSentimentAnalysis;
+        window.RunSentimentAnalysis = function() {
+            const btn = document.querySelector('.analyze-btn');
+            const loading = document.querySelector('.loading');
+            const btnText = document.querySelector('.btn-text');
+            const resultContainer = document.querySelector('.result-container');
+
+            // Show loading state
+            loading.classList.add('active');
+            btn.classList.add('loading');
+            btnText.textContent = 'Analyzing...';
+            btn.disabled = true;
+            resultContainer.style.opacity = '0.5';
+
+            // Call original function
+            originalRunSentimentAnalysis();
+
+            // Reset button state after analysis (assuming the analysis takes 2 seconds)
+            setTimeout(() => {
+                loading.classList.remove('active');
+                btn.classList.remove('loading');
+                btnText.textContent = 'Analyze Sentiment';
+                btn.disabled = false;
+                resultContainer.style.opacity = '1';
+                
+                // Add a quick pulse animation to the result container
+                resultContainer.style.animation = 'pulse 0.3s ease';
+                setTimeout(() => {
+                    resultContainer.style.animation = '';
+                }, 300);
+            }, 2000);
+        };
+    </script>
+</body>
+</html>
