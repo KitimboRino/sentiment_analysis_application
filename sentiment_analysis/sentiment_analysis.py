@@ -1,42 +1,70 @@
-import requests
+import nltk
+from nltk.sentiment import SentimentIntensityAnalyzer
 import json
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
 def sentiment_analyzer(text_to_analyse):
-       # Get URL from environment variable
-    url = os.getenv('SENTIMENT_API_URL')
+    """
+    Analyze the sentiment of given text using NLTK's VADER sentiment analyzer.
     
-    # Check if URL is available
-    if not url:
-        print("Error: SENTIMENT_API_URL not found in environment variables")
-        return {"error": "API URL not configured"}
-
-    myobj = {"raw_document": {"text": text_to_analyse}}
-    header = {"grpc-metadata-mm-model-id": "sentiment_aggregated-bert-workflow_lang_multi_stock"}
-
-    response = requests.post(url, json=myobj, headers=header)
-    
-    # Check if the request was successful
-    if response.status_code != 200:
-        print(f"API Error {response.status_code}: {response.text}")
-        return {"error": "API request failed"}
-
-    # Parse the JSON response
-    formatted_response = json.loads(response.text)
-    
-    # Print the full response for debugging
-    print("Full API Response:", json.dumps(formatted_response, indent=4))
-
-    # Check if 'documentSentiment' exists in the response
-    if 'documentSentiment' not in formatted_response:
-        print("Error: 'documentSentiment' key is missing in the response.")
-        return {"error": "Invalid API response format"}
-
-    # Extract and return sentiment data
-    label = formatted_response['documentSentiment']['label']
-    score = formatted_response['documentSentiment']['score']
-    return {'label': label, 'score': score}
+    Args:
+        text_to_analyse (str): Text to analyze
+        
+    Returns:
+        dict: Contains sentiment label and score
+    """
+    try:
+        # Download required NLTK data (only needed first time)
+        try:
+            nltk.data.find('sentiment/vader_lexicon.zip')
+        except LookupError:
+            print("Downloading VADER lexicon...")
+            nltk.download('vader_lexicon', quiet=True)
+        
+        # Create VADER sentiment analyzer
+        sia = SentimentIntensityAnalyzer()
+        
+        # Get sentiment scores
+        scores = sia.polarity_scores(text_to_analyse)
+        
+        # Convert VADER compound score (-1 to 1) to match original API format (0 to 1)
+        normalized_score = (scores['compound'] + 1) / 2
+        
+        # Determine sentiment label with SENTIMENT_ prefix to match Watson API
+        if scores['compound'] >= 0.05:
+            label = 'SENTIMENT_POSITIVE'
+        elif scores['compound'] <= -0.05:
+            label = 'SENTIMENT_NEGATIVE'
+        else:
+            label = 'SENTIMENT_NEUTRAL'
+        
+        # Create response format matching original API
+        formatted_response = {
+            'documentSentiment': {
+                'label': label,
+                'score': normalized_score
+            },
+            'sentiment_details': {
+                'positive': scores['pos'],
+                'negative': scores['neg'],
+                'neutral': scores['neu'],
+                'compound': scores['compound']
+            }
+        }
+        
+        # Print full response for debugging
+        print("Full API Response:", json.dumps(formatted_response, indent=4))
+        
+        # Return sentiment data
+        return {
+            'label': label,
+            'score': normalized_score
+        }
+        
+    except Exception as e:
+        print(f"Error in sentiment analysis: {str(e)}")
+        return {"error": f"Sentiment analysis failed: {str(e)}"}
